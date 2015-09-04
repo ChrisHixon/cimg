@@ -5,14 +5,14 @@
 # TODO:
 # - print error messages to stderr
 # - return values and error handling cleanup
+# - make the hardcoded defaults command line options
 
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
-EXT=cimg
-MNT=/mnt
-FS=ext2
-
-LUKS_FORMAT_OPTIONS="-v --hash sha512 --cipher aes-xts-plain64 --key-size 512 --use-random"
+EXT=cimg # encrypted image extension
+MNT=/mnt # base mount directory (images will be mounted at $MNT/image_name)
+FS=ext2  # file system used on encrypted image
+LUKS_FORMAT_OPTIONS="-v --hash sha512 --cipher aes-xts-plain64 --key-size 512 --use-random" # LUKS format options
 
 NAME_REGEX='^[A-Za-z0-9+._][A-Za-z0-9+._-]*$'
 INT_REGEX='^[-+]?(0|[1-9][0-9]*)$'
