@@ -20,15 +20,19 @@ $ cimg mount (filename) [(mount_options)]
 
 ## Unmount an image
 
-$ cimg (umount|unmount) (filename)
+$ cimg unmount|umount (filename)
 
 ## Check image status
 
 $ cimg status (filename)
 
+# Tips
+
+For best results, use the configured filename extension (.cimg by default) for the encrypted image files. This extension will be stripped off to obtain the name used for the device mapper and mount point (e.g. for filename private.cimg, the mapper will be /dev/mapper/private, and mount point will be /mnt/private). However, any file extension will work but it'll be included in the mapper/mount point name.
+
 # Defaults
 
-At this time, there are a few defaults that can be changed in the script code itself:
+There are a few defaults that can be changed in the script code itself:
 
 EXT=cimg # encrypted image file extension
 
