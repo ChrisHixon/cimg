@@ -1,0 +1,259 @@
+#!/bin/bash
+
+# script to allow creation, mounting, and unmounting of LUKS image files via loopback
+
+# TODO:
+# - print error messages to stderr
+# - return values and error handling cleanup
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+EXT=cimg
+MNT=/mnt
+FS=ext2
+
+LUKS_FORMAT_OPTIONS="-v --hash sha512 --cipher aes-xts-plain64 --key-size 512 --use-random"
+
+NAME_REGEX='^[A-Za-z0-9+._][A-Za-z0-9+._-]*$'
+INT_REGEX='^[-+]?(0|[1-9][0-9]*)$'
+
+
+# create <filename> <size_MB> - create image
+create_image() {
+    local file="$1"
+    local name=$(basename -- "$file" ."$EXT")
+    if [[ ! $name =~ $NAME_REGEX ]]; then
+        echo "invalid name: '$name'"; return 1;
+    fi
+    local size_m="$2"
+    if [[ ! $size_m =~ $INT_REGEX ]] || ! [ "$size_m" -gt 0 ]; then
+        echo "invalid size_m: '$size_m'"; return 1;
+    fi
+    local offset blocks
+
+    echo "create_image: file='$file' name='$name' size_m='$size_m'"
+
+    # sanity checks
+    if [ -e "$file" ]; then
+        echo "file '$file' exists. aborting."; return 1
+    fi
+    if cryptsetup status "$name" > /dev/null 2>&1 ; then
+        echo "name '$name' is active. aborting."; return 1
+    fi
+
+    # create an empty container file of appropriate size 
+    if ! ee truncate --size "${size_m}M" "$file"; then
+        echo "failed to create container."; return 1
+    fi
+
+    # format LUKS
+    if ! ee cryptsetup luksFormat $LUKS_FORMAT_OPTIONS "$file"; then
+        echo "LUKS format failed"; return 1
+    fi
+
+    # determine payload offset
+    if ! offset=$(cryptsetup luksDump "$file" | sed -n 's/^Payload offset:[[:space:]]*//p'); then
+        echo "failed to determine payload offset"; return 1
+    fi
+
+    # open LUKS
+    if ! ee cryptsetup luksOpen "$file" "$name"; then
+        echo "LUKS open failed"; return 1
+    fi
+
+    # fill the container with random data by zeroing mapped device 
+    blocks=$[(size_m*1024*1024 - offset*512)/512]
+    echo "offset=${offset} blocks=${blocks}"
+    if ! ee dd if=/dev/zero of="/dev/mapper/${name}" bs=512 count="$blocks"; then
+        echo "failed to zero mapped device"
+        ee cryptsetup luksClose "$name"
+        return 1
+    fi
+
+    # make a filesystem on the encrypted device
+    if ! ee mkfs."$FS" /dev/mapper/"$name"; then
+        echo "FS creation failed"
+        ee cryptsetup luksClose "$name"
+        return 1
+    fi
+
+    # close LUKS, DONE
+    if ! ee cryptsetup luksClose "$name"; then
+        echo "LUKS close failed"; return 1
+    fi
+    echo "DONE creating image file '$file'"
+    return 0
+}
+
+# check <filename> - check image
+check_image() {
+    local file="$1"
+    local name=$(basename -- "$file" ."$EXT")
+    if [[ ! $name =~ $NAME_REGEX ]]; then
+        echo "invalid name: '$name'"; return 1;
+    fi
+
+    echo "check_image: file='$file' name='$name'"
+
+    # sanity checks
+    if [ ! -r "$file" ]; then
+        echo "file '$file' not readable. aborting."; return 1
+    fi
+    if cryptsetup status "$name" > /dev/null 2>&1 ; then
+        echo "name '$name' is active. aborting."; return 1
+    fi
+
+    # open LUKS
+    if ! ee cryptsetup luksOpen "$file" "$name"; then
+        echo "LUKS open failed"
+        return 1
+    fi
+
+    # check
+    ee fsck."$FS" /dev/mapper/"$name"
+
+    # close LUKS
+    ee cryptsetup luksClose "$name"
+}
+
+# mount <filename> <mount_options> - mount image
+mount_image() {
+    local file="$1"
+    local name=$(basename -- "$file" ."$EXT")
+    if [[ ! $name =~ $NAME_REGEX ]]; then
+        echo "invalid name: '$name'"; return 1;
+    fi
+    local opts="$2"
+    if [ -z "$opts" ]; then
+        opts='noatime,nodiratime'
+    fi
+    local mnt="${MNT}/${name}"
+
+    echo "mount_image: file='$file' name='$name' mnt='$mnt' opts='$opts'"
+
+    # sanity checks
+    if [ ! -r "$file" ]; then
+        echo "file '$file' not readable. aborting."; return 1
+    fi
+    if cryptsetup status "$name" > /dev/null 2>&1 ; then
+        echo "name '$name' is active. aborting."; return 1
+    fi
+    if mountpoint -q "$mnt"; then
+        echo "directory '$mnt' is an active mount point. aborting."; return 1
+    fi
+
+    # open LUKS
+    if ! ee cryptsetup luksOpen "$file" "$name"; then
+        echo "LUKS open failed"
+        return 1
+    fi
+
+    # check
+    ee fsck."$FS" /dev/mapper/"$name"
+    case $? in
+        0|1) # 0=ok 1=fixed
+            echo "file system is OK"
+            ;;
+        *)
+            echo "fsck failed... please investigate situation manually"
+            ee cryptsetup luksClose "$name"
+            return 1
+            ;;
+    esac
+
+    # mount
+    if [ ! -d "$mnt" ]; then
+        ee mkdir "$mnt"
+    fi
+    if ! ee mount -t "$FS" -o "$opts" /dev/mapper/"$name" "$mnt"; then
+        echo "mount failed"
+        if [ -d "$mnt" ]; then
+            ee rmdir "$mnt"
+        fi
+        ee cryptsetup luksClose "$name"
+        return 1
+    fi
+}
+
+# unmount <filename> - unmount image
+unmount_image() {
+    local file="$1"
+    local name=$(basename -- "$file" ."$EXT")
+    if [[ ! $name =~ $NAME_REGEX ]]; then
+        echo "invalid name: '$name'"; return 1;
+    fi
+    local mnt="${MNT}/${name}"
+    local cstatus loopfile
+
+    # sanity checks
+    if [ ! -r "$file" ]; then
+        echo "file '$file' not readable. aborting."; return 1
+    fi
+    if ! cstatus=$(cryptsetup status "$name"); then
+        echo "name '$name' is not active. aborting."; return 1
+    fi
+    loopfile=$(echo "$cstatus" | tail -n +2 | sed -n 's/^[[:space:]]*loop:[[:space:]]*//p')
+    if [ "$loopfile" != "$(readlink -f "$file")" ]; then
+        echo "file '$file' is not attached to name '$name'"; return 1
+    fi
+    if ! mountpoint -q "$mnt"; then
+        echo "directory '$mnt' is not a mount point. aborting."; return 1
+    fi
+
+    # unmount
+    if ! ee umount "$mnt"; then
+        echo "unmount failed"; return 1
+    fi
+
+    # remove mount directory
+    ee rmdir "$mnt"
+
+    # close LUKS
+    ee cryptsetup luksClose "$name"
+}
+
+# status <filename> - image status
+image_status() {
+    local file="$1"
+    local name=$(basename -- "$file" ."$EXT")
+    if [[ ! $name =~ $NAME_REGEX ]]; then
+        echo "invalid name: '$name'"; return 1;
+    fi
+    cryptsetup status "$name"
+}
+
+# echo and execute command
+ee() {
+    echo "--> $@"
+    "$@"
+}
+
+case "$1" in
+    create)
+        shift
+        create_image "$@"
+        ;;
+    check)
+        shift
+        check_image "$@"
+        ;;
+    mount)
+        shift
+        mount_image "$@"
+        ;;
+    unmount|umount)
+        shift
+        unmount_image "$@"
+        ;;
+    status)
+        shift
+        image_status "$@"
+        ;;
+    dump)
+        shift
+        cryptsetup luksDump -- "$1"
+        ;;
+    *)
+        echo "usage: $0 (create|mount|unmount|check|status|dump) <args>"
+        exit 1
+esac
