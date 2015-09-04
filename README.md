@@ -1,16 +1,22 @@
 # Cimg
 
-Cimg is a simple bash script to help create, mount, unmount, and check encrypted dm-crypt/LUKS disk image files.
+Cimg is a bash script to help create, mount, unmount, and check encrypted dm-crypt/LUKS disk image files.
+
+# Requirements
+
+- Linux or compatible system, bash, cryptsetup, dm-crypt, LUKS.
 
 # Usage
 
 $ cimg (command) [(args)]
 
+# Commands
+
 ## Create an image
 
 $ cimg create (filename) (size_in_MB)
 
-## Check an image
+## Check the filesystem on an image
 
 $ cimg check (filename)
 
@@ -18,17 +24,21 @@ $ cimg check (filename)
 
 $ cimg mount (filename) [(mount_options)]
 
-## Unmount an image
-
-$ cimg unmount|umount (filename)
-
 ## Check image status
 
 $ cimg status (filename)
 
+## Unmount an image
+
+$ cimg unmount|umount (filename)
+
+## Dump the LUKS header of an image
+
+# cimg dump (filename)
+
 # Notes
 
-This script needs to be run with root permissions. I suggest using the sudo command.
+This script needs to be run with root permission. I suggest using the sudo command.
 
 For best results, use the configured filename extension (.cimg by default) for the encrypted image files. This extension will be stripped off to obtain the name used for the device mapper and mount point. For example, for the filename private.cimg, the mapper name will be /dev/mapper/private, and mount point will be /mnt/private). Any file extension will work, but it'll be included in the mapper/mount point name.
 
@@ -81,3 +91,74 @@ Writing superblocks and filesystem accounting information: done
 --> cryptsetup luksClose foo
 DONE creating image file 'foo.cimg'
 ````
+
+## Check an image filesystem
+
+```
+$ sudo ./cimg check foo.cimg
+check_image: file='foo.cimg' name='foo'
+--> cryptsetup luksOpen foo.cimg foo
+Enter passphrase for foo.cimg: 
+--> fsck.ext2 /dev/mapper/foo
+e2fsck 1.42.12 (29-Aug-2014)
+/dev/mapper/foo: clean, 11/2048 files, 306/8192 blocks
+--> cryptsetup luksClose foo
+```
+
+## Mount an image
+
+```
+$ sudo ./cimg mount foo.cimg
+mount_image: file='foo.cimg' name='foo' mnt='/mnt/foo' opts='noatime,nodiratime'
+--> cryptsetup luksOpen foo.cimg foo
+Enter passphrase for foo.cimg: 
+--> fsck.ext2 /dev/mapper/foo
+e2fsck 1.42.12 (29-Aug-2014)
+/dev/mapper/foo: clean, 11/2048 files, 306/8192 blocks
+file system is OK
+--> mkdir /mnt/foo
+--> mount -t ext2 -o noatime,nodiratime /dev/mapper/foo /mnt/foo
+```
+
+## Check the status of an image
+
+```
+$ sudo ./cimg status foo.cimg
+/dev/mapper/foo is active and is in use.
+  type:    LUKS1
+  cipher:  aes-xts-plain64
+  keysize: 512 bits
+  device:  /dev/loop2
+  loop:    /path/to/foo.cimg
+  offset:  4096 sectors
+  size:    16384 sectors
+  mode:    read/write
+```
+
+## Unmount an image
+
+```
+$ sudo ./cimg umount foo.cimg
+--> umount /mnt/foo
+--> rmdir /mnt/foo
+--> cryptsetup luksClose foo
+```
+
+## Dump the LUKS header of an image:
+
+```
+$ sudo ./cimg dump foo.cimg
+LUKS header information for foo.cimg
+
+Version:       	1
+Cipher name:   	aes
+Cipher mode:   	xts-plain64
+Hash spec:     	sha512
+Payload offset:	4096
+MK bits:       	512
+...output truncated...
+```
+
+
+
+
