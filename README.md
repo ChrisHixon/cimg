@@ -16,7 +16,7 @@ $ cimg (command) [(args)]
 
 $ cimg create (filename) (size_in_MB)
 
-## Check the filesystem on an image
+## Check the image filesystem
 
 $ cimg check (filename)
 
@@ -40,7 +40,9 @@ $ cimg unmount|umount (filename)
 
 This script needs to be run with root permission. I suggest using the sudo command.
 
-For best results, use the configured filename extension (.cimg by default) for the encrypted image files. This extension will be stripped off to obtain the name used for the device mapper and mount point. For example, for the filename private.cimg, the mapper name will be /dev/mapper/private, and mount point will be /mnt/private). Any file extension will work, but it'll be included in the mapper/mount point name.
+Some file space will be allocated for the LUKS headers and the filesystem, typically a few megabytes, so please adjust the image file size accordingly.
+
+For best naming results, use the configured filename extension (.cimg by default) for encrypted image filenames. This extension will be stripped off to obtain the name used for the device mapper and mount point. For example, for the filename private.cimg, the mapper name will be /dev/mapper/private, and mount point will be /mnt/private). Any file extension will work, but it'll be included in the mapper/mount point name.
 
 # Defaults
 
