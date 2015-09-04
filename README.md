@@ -2,41 +2,41 @@
 
 Cimg is a bash script to help create, mount, unmount, and check encrypted dm-crypt/LUKS disk image files.
 
-# Requirements
+## Requirements
 
 - Linux or compatible system, bash, cryptsetup, dm-crypt, LUKS.
 
-# Usage
+## Usage
 
 $ cimg (command) [(args)]
 
-# Commands
+## Commands
 
-## Create an image
+### Create an image
 
 $ cimg create (filename) (size_in_MB)
 
-## Check the image filesystem
+### Check the image filesystem
 
 $ cimg check (filename)
 
-## Mount an image
+### Mount an image
 
 $ cimg mount (filename) [(mount_options)]
 
-## Check image status
+### Check image status
 
 $ cimg status (filename)
 
-## Unmount an image
+### Unmount an image
 
 $ cimg unmount|umount (filename)
 
-## Dump the LUKS header of an image
+### Dump the LUKS header of an image
 
-# cimg dump (filename)
+$ cimg dump (filename)
 
-# Notes
+## Notes
 
 This script needs to be run with root permission. I suggest using the sudo command.
 
@@ -44,7 +44,7 @@ Some file space will be allocated for the LUKS headers and the filesystem, typic
 
 For best naming results, use the configured filename extension (.cimg by default) for encrypted image filenames. This extension will be stripped off to obtain the name used for the device mapper and mount point. For example, for the filename private.cimg, the mapper name will be /dev/mapper/private, and mount point will be /mnt/private). Any file extension will work, but it'll be included in the mapper/mount point name.
 
-# Defaults
+## Defaults
 
 There are a few defaults that can be changed in the script code itself:
 
@@ -55,9 +55,9 @@ FS=ext2  # file system used on encrypted image
 LUKS_FORMAT_OPTIONS="-v --hash sha512 --cipher aes-xts-plain64 --key-size 512 --use-random" # LUKS format options
 ```
 
-# Examples
+## Examples
 
-## Create an image
+### Create an image
 
 The following will create a 10 MB encrypted disk image named foo.cimg:
 
@@ -94,7 +94,7 @@ Writing superblocks and filesystem accounting information: done
 DONE creating image file 'foo.cimg'
 ````
 
-## Check an image filesystem
+### Check an image filesystem
 
 ```
 $ sudo ./cimg check foo.cimg
@@ -107,7 +107,7 @@ e2fsck 1.42.12 (29-Aug-2014)
 --> cryptsetup luksClose foo
 ```
 
-## Mount an image
+### Mount an image
 
 ```
 $ sudo ./cimg mount foo.cimg
@@ -122,7 +122,7 @@ file system is OK
 --> mount -t ext2 -o noatime,nodiratime /dev/mapper/foo /mnt/foo
 ```
 
-## Check the status of an image
+### Check the status of an image
 
 ```
 $ sudo ./cimg status foo.cimg
@@ -137,7 +137,7 @@ $ sudo ./cimg status foo.cimg
   mode:    read/write
 ```
 
-## Unmount an image
+### Unmount an image
 
 ```
 $ sudo ./cimg umount foo.cimg
@@ -146,7 +146,7 @@ $ sudo ./cimg umount foo.cimg
 --> cryptsetup luksClose foo
 ```
 
-## Dump the LUKS header of an image:
+### Dump the LUKS header of an image:
 
 ```
 $ sudo ./cimg dump foo.cimg
@@ -160,7 +160,3 @@ Payload offset:	4096
 MK bits:       	512
 ...output truncated...
 ```
-
-
-
-
