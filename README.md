@@ -4,7 +4,7 @@ Cimg is a bash script to help create, mount, unmount, and check encrypted dm-cry
 
 ## Requirements
 
-- Linux or compatible system, bash, cryptsetup, dm-crypt, LUKS.
+Linux or compatible system, bash, cryptsetup, dm-crypt, LUKS.
 
 ## Usage
 
