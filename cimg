@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# script to allow creation, mounting, and unmounting of LUKS image files via loopback
+# Script to create, check, mount, and umount dm-crypt LUKS image files
 
 # TODO:
 # - print error messages to stderr
-# - return values and error handling cleanup
 # - make the hardcoded defaults command line options
 
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
@@ -41,7 +40,7 @@ create_image() {
         echo "name '$name' is active. aborting."; return 1
     fi
 
-    # create an empty container file of appropriate size 
+    # create an empty container file of appropriate size
     if ! ee truncate --size "${size_m}M" "$file"; then
         echo "failed to create container."; return 1
     fi
@@ -61,7 +60,7 @@ create_image() {
         echo "LUKS open failed"; return 1
     fi
 
-    # fill the container with random data by zeroing mapped device 
+    # fill the container with random data by zeroing mapped device
     blocks=$[(size_m*1024*1024 - offset*512)/512]
     echo "offset=${offset} blocks=${blocks}"
     if ! ee dd if=/dev/zero of="/dev/mapper/${name}" bs=512 count="$blocks"; then
