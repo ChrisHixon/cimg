@@ -42,7 +42,7 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 EXT=cimg # encrypted image extension
 MNT=/mnt # base mount directory (images will be mounted at $MNT/image_name)
 FS=ext2  # file system used on encrypted image
-LUKS_FORMAT_OPTIONS="-v --hash sha512 --cipher aes-xts-plain64 --key-size 512 --use-random" # LUKS format options
+LUKS_FORMAT_OPTIONS="--verbose --hash sha512 --cipher aes-xts-plain64 --key-size 512 --use-random" # LUKS format options
 
 NAME_REGEX='^[A-Za-z0-9+._][A-Za-z0-9+._-]*$'
 INT_REGEX='^[-+]?(0|[1-9][0-9]*)$'
