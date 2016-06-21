@@ -142,6 +142,9 @@ check_image() {
     # check
     ee fsck."$FS" /dev/mapper/"$name"
 
+    # sync
+    ee sync
+
     # close LUKS
     ee cryptsetup luksClose "$name"
 }
